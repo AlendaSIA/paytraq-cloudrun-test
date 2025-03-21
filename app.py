@@ -1,16 +1,19 @@
-from flask import Flask, request, jsonify
+import requests
 
-app = Flask(__name__)
+# PayTraq API autentifikācijas dati
+API_KEY = "421045bc-a402-4223-b048-52b65340e21a-98693"
+API_TOKEN = "KcPtQHuxpxGbXCr4"
 
-@app.route("/", methods=["GET"])
-def index():
-    return jsonify({"message": "Sveiki no Cloud Run testa aplikācijas!"})
+# PayTraq API URL priekš orders (sales)
+url = f"https://go.paytraq.com/api/sales?APIKey={API_KEY}&APIToken={API_TOKEN}"
 
-@app.route("/paytraq-webhook", methods=["POST"])
-def paytraq_webhook():
-    data = request.json
-    print("Saņemts dati no PayTraq:", data)
-    return jsonify({"status": "dati saņemti"}), 200
+# Nosūtām GET pieprasījumu
+response = requests.get(url)
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
+# Pārbaudām atbildi
+if response.status_code == 200:
+    print("API pieslēgums veiksmīgs!")
+    print(response.text)  # izdrukā visus saņemtos datus
+else:
+    print(f"API pieslēgums neizdevās, status kods: {response.status_code}")
+    print(response.text)
