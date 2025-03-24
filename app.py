@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 import requests
 from datetime import datetime
+import xml.etree.ElementTree as ET
 
 app = Flask(__name__)
 
@@ -21,29 +22,35 @@ def get_orders():
     response = requests.get(url)
     
     if response.status_code == 200:
-        # Print headers and raw response for debugging
         print("Content-Type:", response.headers.get('Content-Type'))
-        print("PayTraq response body:", response.text)
-
+        print("PayTraq response:", response.text)
         try:
-            data = response.json()  # Try parsing as JSON
-        except Exception as e:
+            # Parsē XML
+            root = ET.fromstring(response.text)
+            data = parse_xml_to_dict(root)  # Funkcija, lai pārvērstu XML uz dictionary (JSON formātā)
+
+            # Nosūtām uz /sync endpointu
+            sync_response = requests.post(SYNC_URL, json=data)
             return jsonify({
-                "error": "Failed to parse JSON",
-                "details": str(e),
-                "response": response.text
+                "paytraq_status": "success",
+                "sync_status": sync_response.status_code,
+                "sync_response": sync_response.text
             })
+        except Exception as e:
+            return jsonify({"error": "Failed to parse XML", "details": str(e), "response": response.text})
 
-        # Nosūtām uz /sync endpointu, ja dati ir pareizi
-        sync_response = requests.post(SYNC_URL, json=data)
-
-        return jsonify({
-            "paytraq_status": "success",
-            "sync_status": sync_response.status_code,
-            "sync_response": sync_response.text
-        })
     else:
         return jsonify({"status": "error", "code": response.status_code, "message": response.text})
+
+# Funkcija XML pārveidošanai uz Python dictionary
+def parse_xml_to_dict(element):
+    data = {}
+    for child in element:
+        if len(child):
+            data[child.tag] = parse_xml_to_dict(child)  # Rekursija
+        else:
+            data[child.tag] = child.text
+    return data
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080)
