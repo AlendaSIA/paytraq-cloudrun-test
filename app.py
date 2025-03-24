@@ -21,15 +21,22 @@ def get_orders():
     response = requests.get(url)
     
     if response.status_code == 200:
+        # Print headers and raw response for debugging
         print("Content-Type:", response.headers.get('Content-Type'))
-        print("PayTraq response:", response.text)
-        try:
-            data = response.json()
-        except Exception as e:
-            return jsonify({"error": "Failed to parse JSON", "details": str(e), "response": response.text})
+        print("PayTraq response body:", response.text)
 
-        # Nosūtām uz /sync endpointu
+        try:
+            data = response.json()  # Try parsing as JSON
+        except Exception as e:
+            return jsonify({
+                "error": "Failed to parse JSON",
+                "details": str(e),
+                "response": response.text
+            })
+
+        # Nosūtām uz /sync endpointu, ja dati ir pareizi
         sync_response = requests.post(SYNC_URL, json=data)
+
         return jsonify({
             "paytraq_status": "success",
             "sync_status": sync_response.status_code,
