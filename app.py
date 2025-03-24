@@ -22,35 +22,30 @@ def get_orders():
     response = requests.get(url)
     
     if response.status_code == 200:
+        # Print headers and raw response for debugging
         print("Content-Type:", response.headers.get('Content-Type'))
         print("PayTraq response:", response.text)
-        try:
-            # Parsē XML
-            root = ET.fromstring(response.text)
-            data = parse_xml_to_dict(root)  # Funkcija, lai pārvērstu XML uz dictionary (JSON formātā)
 
-            # Nosūtām uz /sync endpointu
-            sync_response = requests.post(SYNC_URL, json=data)
-            return jsonify({
-                "paytraq_status": "success",
-                "sync_status": sync_response.status_code,
-                "sync_response": sync_response.text
-            })
-        except Exception as e:
-            return jsonify({"error": "Failed to parse XML", "details": str(e), "response": response.text})
+        # Check if the response is in XML format
+        if 'xml' in response.headers.get('Content-Type', '').lower():
+            try:
+                # Parse XML
+                root = ET.fromstring(response.text)
+                data = parse_xml_to_dict(root)  # Convert XML to dictionary (JSON format)
+
+                # Send to /sync endpoint
+                sync_response = requests.post(SYNC_URL, json=data)
+                return jsonify({
+                    "paytraq_status": "success",
+                    "sync_status": sync_response.status_code,
+                    "sync_response": sync_response.text
+                })
+            except Exception as e:
+                return jsonify({"error": "Failed to parse XML", "details": str(e), "response": response.text})
+        else:
+            return jsonify({"error": "Received data is not in XML format", "response": response.text})
 
     else:
         return jsonify({"status": "error", "code": response.status_code, "message": response.text})
 
-# Funkcija XML pārveidošanai uz Python dictionary
-def parse_xml_to_dict(element):
-    data = {}
-    for child in element:
-        if len(child):
-            data[child.tag] = parse_xml_to_dict(child)  # Rekursija
-        else:
-            data[child.tag] = child.text
-    return data
-
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=8080)
+# Function to convert XML to
