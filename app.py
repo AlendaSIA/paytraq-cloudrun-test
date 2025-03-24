@@ -7,10 +7,11 @@ app = Flask(__name__)
 # API dati
 API_KEY = "421045bc-a402-4223-b048-52b65340e21a-98693"
 API_TOKEN = "KcPtQHuxpxGbXCr4"
+SYNC_URL = "https://aytraq-to-pipedrive-basic-service-281111054789.us-central1.run.app/sync"
 
 @app.route('/', methods=['GET'])
 def index():
-    return jsonify({"message": "Sveiki! Serviss darbojas. Izmanto /get-paytraq-orders lai ielādētu šodienas datus."})
+    return jsonify({"message": "Sveiki! Serviss darbojas. Izmanto /get-paytraq-orders lai ielādētu un sinhronizētu datus."})
 
 @app.route('/get-paytraq-orders', methods=['GET'])
 def get_orders():
@@ -20,7 +21,14 @@ def get_orders():
     response = requests.get(url)
     
     if response.status_code == 200:
-        return jsonify({"status": "success", "data": response.text})
+        data = response.json()
+        # Nosūtām uz /sync endpointu
+        sync_response = requests.post(SYNC_URL, json=data)
+        return jsonify({
+            "paytraq_status": "success",
+            "sync_status": sync_response.status_code,
+            "sync_response": sync_response.text
+        })
     else:
         return jsonify({"status": "error", "code": response.status_code, "message": response.text})
 
