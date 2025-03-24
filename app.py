@@ -19,26 +19,24 @@ def get_orders():
     url = f"https://go.paytraq.com/api/sales?APIKey={API_KEY}&APIToken={API_TOKEN}&DateFrom={today}&DateTo={today}"
 
     response = requests.get(url)
-    print("Paytraq API URL:", url)
-    print("Paytraq API status code:", response.status_code)
-    print("Paytraq API response body:", response.text)
     
     if response.status_code == 200:
-        data = response.json()
+        print("Content-Type:", response.headers.get('Content-Type'))
+        print("PayTraq response:", response.text)
+        try:
+            data = response.json()
+        except Exception as e:
+            return jsonify({"error": "Failed to parse JSON", "details": str(e), "response": response.text})
+
+        # Nosūtām uz /sync endpointu
         sync_response = requests.post(SYNC_URL, json=data)
-        print("SYNC status code:", sync_response.status_code)
-        print("SYNC response body:", sync_response.text)
         return jsonify({
             "paytraq_status": "success",
             "sync_status": sync_response.status_code,
             "sync_response": sync_response.text
         })
     else:
-        return jsonify({
-            "status": "error",
-            "code": response.status_code,
-            "message": response.text
-        })
+        return jsonify({"status": "error", "code": response.status_code, "message": response.text})
 
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8080)
