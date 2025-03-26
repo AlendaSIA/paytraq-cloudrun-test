@@ -45,7 +45,8 @@ def paytraq_full_report():
 
         doc_id = safe_text(doc, "DocumentID")
         doc_number = safe_text(doc, "DocumentNumber")
-        client_name = safe_text(doc.find("Client"), "ClientName")
+        client = doc.find("Client")
+        client_name = safe_text(client, "ClientName")
 
         output = []
         output.append(f"✅ Jaunākais dokumenta ID: {doc_id}")
@@ -91,15 +92,15 @@ def paytraq_full_report():
         # Klienta papildu informācija
         output.append("\n📋 Klienta informācija:")
         output.append("=" * 60)
-        company = doc.find("Company")
-        output.append(f"🏢 Nosaukums: {safe_text(company, 'Name')}")
-        output.append(f"📧 E-pasts: {safe_text(company, 'Email')}")
-        output.append(f"📞 Telefons: {safe_text(company, 'Phone')}")
-        output.append(f"🆔 Reģistrācijas nr.: {safe_text(company, 'RegistrationNo')}")
+        output.append(f"🏢 Nosaukums: {safe_text(client, 'ClientName')}")
+        output.append(f"📧 E-pasts: {safe_text(client, 'Email')}")
+        output.append(f"📞 Telefons: {safe_text(client, 'Phone')}")
+        output.append(f"🆔 Reģistrācijas nr.: {safe_text(client, 'RegistrationNo')}")
 
         address_parts = []
+        address = client.find("Address")
         for tag in ['Street', 'City', 'State', 'Postcode', 'CountryCode']:
-            part = safe_text(company.find("Address") if company is not None else None, tag)
+            part = safe_text(address, tag)
             address_parts.append(part)
         full_address = ", ".join(address_parts)
         output.append(f"📍 Adrese: {full_address}")
