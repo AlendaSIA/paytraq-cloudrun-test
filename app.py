@@ -45,8 +45,17 @@ def paytraq_full_report():
     doc_ref = safe_text(detail_root, ".//DocumentRef")
     client_name = safe_text(detail_root, ".//ClientName")
     comment = safe_text(detail_root, ".//Comment")
+
+    # 🆕 Loģika pasūtījuma numuram
+    estimate_order = "—"
+    if comment.startswith("M-860325"):
+        estimate_order = comment.split(",")[0].strip()
+    elif doc_ref.startswith("PAS/"):
+        estimate_order = doc_ref
+
     output.append(f"📄 Dokumenta Nr.: {doc_ref}")
     output.append(f"🧾 Komentārs: {comment}")
+    output.append(f"📦 Estimate / Sales Order: {estimate_order}")
     output.append(f"🧑 Klients: {client_name}")
 
     # Produkti
