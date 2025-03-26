@@ -2,7 +2,7 @@ from flask import Flask, jsonify, Response
 import requests
 from datetime import datetime
 import xml.etree.ElementTree as ET
-import os  # <--- svarīgi!
+import os
 
 app = Flask(__name__)
 
@@ -21,7 +21,6 @@ def get_orders():
     url = f"https://go.paytraq.com/api/sales?APIKey={API_KEY}&APIToken={API_TOKEN}&DateFrom={today}&DateTo={today}"
 
     response = requests.get(url)
-    
     if response.status_code == 200:
         try:
             root = ET.fromstring(response.text)
@@ -37,7 +36,6 @@ def get_orders():
     else:
         return jsonify({"status": "error", "code": response.status_code, "message": response.text})
 
-# === PILNA ATSKAITE: Dokuments + Produkti + Grupas ===
 @app.route('/paytraq-full-report', methods=['GET'])
 def paytraq_full_report():
     today = datetime.today().strftime('%Y-%m-%d')
@@ -47,15 +45,17 @@ def paytraq_full_report():
         response = requests.get(url)
         response.raise_for_status()
         root = ET.fromstring(response.content)
-        orders = root.findall(".//Document")
+        orders = root.findall(".//Sale")
+
         if not orders:
             return "❌ Nav atrasts neviens dokuments."
 
-        doc = orders[0]
+        sale = orders[0]
+        doc = sale.find(".//Document")
         doc_id = doc.findtext("DocumentID")
-        doc_number = doc.findtext("DocumentNumber")
-        client_name = doc.findtext(".//Company/Name")
-        line_items = doc.findall(".//LineItem")
+        doc_number = doc.findtext("DocumentRef")
+        client_name = doc.findtext(".//Client/ClientName")
+        line_items = sale.findall(".//LineItem")
 
         output = []
         output.append(f"✅ Jaunākais dokumenta ID: {doc_id}")
@@ -71,14 +71,13 @@ def paytraq_full_report():
             name = item.findtext("ItemName")
             code = item.findtext("ItemCode")
             price = item.findtext("Price")
-            unit = item.findtext(".//UnitName", default="gab.")
+            unit = item.findtext("UnitName") or "gab."
             total = item.findtext("LineTotal")
             item_id = item.findtext("ItemID")
 
             output.append(f"{idx}. {qty} x {name} ({code}) - {price} EUR [{unit}] → {total} EUR")
             output.append(f"      🔎 ItemID: {item_id}")
 
-            # Grupas iegūšana
             product_url = f"https://go.paytraq.com/api/product/{item_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
             try:
                 product_response = requests.get(product_url)
@@ -93,7 +92,6 @@ def paytraq_full_report():
             except Exception as e:
                 output.append(f"      ⚠️ Neizdevās iegūt grupu: {e}")
 
-        # Grupas apkopošana
         output.append("\n📚 Produktu grupas dokumentā:")
         output.append("=" * 60)
         for group, total in item_groups.items():
