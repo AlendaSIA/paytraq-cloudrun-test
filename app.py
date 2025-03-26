@@ -45,6 +45,7 @@ def paytraq_full_report():
     doc_ref = safe_text(detail_root, ".//DocumentRef")
     client_name = safe_text(detail_root, ".//ClientName")
     comment = safe_text(detail_root, ".//Comment")
+    output.append(f"📦 Estimate / Sales Order: {doc_ref}")  # <- pievienots
     output.append(f"📄 Dokumenta Nr.: {doc_ref}")
     output.append(f"🧾 Komentārs: {comment}")
     output.append(f"🧑 Klients: {client_name}")
