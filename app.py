@@ -2,7 +2,7 @@ from flask import Flask, Response
 import requests
 import xml.etree.ElementTree as ET
 import os
-import re  # ← svarīgi Estimate izvilkšanai
+import re
 
 app = Flask(__name__)
 
@@ -46,12 +46,12 @@ def paytraq_full_report():
     doc_ref = safe_text(detail_root, ".//DocumentRef")
     client_name = safe_text(detail_root, ".//ClientName")
     comment = safe_text(detail_root, ".//Comment")
-
     output.append(f"📄 Dokumenta Nr.: {doc_ref}")
     output.append(f"🧾 Komentārs: {comment}")
 
-    # Estimate / Sales Order izvilkšana no komentāra
-    match = re.search(r'\bPAS/\d{4}/\d{5}\b', comment)
+    # Estimate no visa XML (ne tikai <Comment>)
+    comment_raw = ET.tostring(detail_root, encoding='unicode')
+    match = re.search(r'\bPAS/\d{4}/\d{5}\b', comment_raw)
     estimate_ref = match.group(0) if match else "—"
     output.append(f"📦 Estimate / Sales Order: {estimate_ref}")
 
@@ -75,11 +75,6 @@ def paytraq_full_report():
 
             output.append(f"{idx}. {qty} x {name} ({code}) - {price} EUR [{unit}] → {total} EUR")
             output.append(f"   🔎 ItemID: {item_id}")
-            output.append("   🔍 Pilns XML par produktu:")
-            for child in item.iter():
-                tag = child.tag
-                text = child.text.strip() if child.text else "—"
-                output.append(f"      {tag}: {text}")
 
     # Klienta info
     client_id = safe_text(detail_root, ".//ClientID")
