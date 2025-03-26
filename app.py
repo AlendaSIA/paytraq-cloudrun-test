@@ -2,6 +2,7 @@ from flask import Flask, Response
 import requests
 import xml.etree.ElementTree as ET
 import os
+import re  # ← svarīgi Estimate izvilkšanai
 
 app = Flask(__name__)
 
@@ -45,9 +46,15 @@ def paytraq_full_report():
     doc_ref = safe_text(detail_root, ".//DocumentRef")
     client_name = safe_text(detail_root, ".//ClientName")
     comment = safe_text(detail_root, ".//Comment")
-    output.append(f"📦 Estimate / Sales Order: {doc_ref}")  # <- pievienots
+
     output.append(f"📄 Dokumenta Nr.: {doc_ref}")
     output.append(f"🧾 Komentārs: {comment}")
+
+    # Estimate / Sales Order izvilkšana no komentāra
+    match = re.search(r'\bPAS/\d{4}/\d{5}\b', comment)
+    estimate_ref = match.group(0) if match else "—"
+    output.append(f"📦 Estimate / Sales Order: {estimate_ref}")
+
     output.append(f"🧑 Klients: {client_name}")
 
     # Produkti
