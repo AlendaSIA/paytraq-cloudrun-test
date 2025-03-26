@@ -16,7 +16,7 @@ def index():
 
 def safe_text(el, path, default="—"):
     try:
-        found = el.find(path)
+        found = el.find(path) if el is not None else None
         return found.text if found is not None and found.text else default
     except:
         return default
@@ -80,7 +80,7 @@ def paytraq_full_report():
         for group, total in item_groups.items():
             output.append(f"🗂️ {group}: {total:.2f} EUR")
 
-        # Klienta papildu informācija
+        # Klienta informācija
         output.append("\n📋 Klienta informācija:")
         output.append("=" * 60)
         company = doc.find(".//Company")
@@ -89,11 +89,11 @@ def paytraq_full_report():
         output.append(f"📞 Telefons: {safe_text(company, 'Phone')}")
         output.append(f"🆔 Reģistrācijas nr.: {safe_text(company, 'RegistrationNo')}")
 
+        address_el = company.find("Address") if company is not None else None
         address_parts = []
         for tag in ['Street', 'City', 'State', 'Postcode', 'CountryCode']:
-            part = safe_text(company.find("Address"), tag)
-            if part != "—":
-                address_parts.append(part)
+            part = safe_text(address_el, tag)
+            address_parts.append(part)
         full_address = ", ".join(address_parts) if address_parts else "—"
         output.append(f"📍 Adrese: {full_address}")
 
