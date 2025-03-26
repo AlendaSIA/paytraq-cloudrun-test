@@ -1,14 +1,14 @@
-
 from flask import Flask, jsonify, Response
 import requests
 from datetime import datetime
 import xml.etree.ElementTree as ET
+import os  # <--- svarīgi!
 
 app = Flask(__name__)
 
-# API dati
-API_KEY = "421045bc-a402-4223-b048-52b65340e21a-98693"
-API_TOKEN = "KcPtQHuxpxGbXCr4"
+# API dati no vides mainīgajiem
+API_KEY = os.environ.get("API_KEY")
+API_TOKEN = os.environ.get("API_TOKEN")
 SYNC_URL = "https://paytraq-to-pipedrive-basic-service-281111054789.us-central1.run.app/sync"
 
 @app.route('/', methods=['GET'])
