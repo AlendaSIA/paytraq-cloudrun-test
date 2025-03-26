@@ -7,6 +7,7 @@ app = Flask(__name__)
 
 API_KEY = os.environ.get("API_KEY")
 API_TOKEN = os.environ.get("API_TOKEN")
+SYNC_URL = "https://paytraq-to-pipedrive-basic-service-281111054789.us-central1.run.app/get-paytraq-orders"
 
 def safe_text(el, path, default="—"):
     try:
@@ -40,13 +41,13 @@ def paytraq_full_report():
     except Exception as e:
         return Response(f"❌ Kļūda iegūstot dokumenta datus: {e}", mimetype="text/plain")
 
-    detail_root = ET.fromstring(detail_response.content)
+    xml_string = detail_response.content  # XML ko sūtīt uz Pipedrive servisu
+    detail_root = ET.fromstring(xml_string)
 
     doc_ref = safe_text(detail_root, ".//DocumentRef")
     client_name = safe_text(detail_root, ".//ClientName")
     comment = safe_text(detail_root, ".//Comment")
 
-    # 🆕 Loģika pasūtījuma numuram
     estimate_order = "—"
     if comment.startswith("M-860325"):
         estimate_order = comment.split(",")[0].strip()
@@ -139,6 +140,14 @@ def paytraq_full_report():
 
     for group_name, total in group_totals.items():
         output.append(f"🗂️ {group_name}: {total:.2f} EUR")
+
+    # ✅ Nosūtām uz Pipedrive servisu
+    try:
+        sync_response = requests.post(SYNC_URL, data=xml_string, headers={"Content-Type": "application/xml"})
+        output.append("\n📤 Nosūtīts uz Pipedrive servisu:")
+        output.append(sync_response.text)
+    except Exception as e:
+        output.append(f"❌ Kļūda sūtot uz Pipedrive servisu: {e}")
 
     return Response("\n".join(output), mimetype="text/plain")
 
