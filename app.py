@@ -16,7 +16,7 @@ def index():
 
 def safe_text(el, path, default="—"):
     try:
-        found = el.find(path) if el is not None else None
+        found = el.find(path)
         return found.text if found is not None and found.text else default
     except:
         return default
@@ -30,19 +30,27 @@ def paytraq_full_report():
         response = requests.get(url)
         response.raise_for_status()
         root = ET.fromstring(response.content)
-        orders = root.findall(".//Document")
-        if not orders:
+
+        sales = root.findall(".//Sale")
+        if not sales:
             return "❌ Nav atrasts neviens dokuments."
 
-        doc = orders[0]
+        header = sales[0].find("Header")
+        if header is None:
+            return "❌ Dokumenta struktūra nav korekta (nav Header)."
+
+        doc = header.find("Document")
+        if doc is None:
+            return "❌ Dokumenta struktūra nav korekta (nav Document)."
+
         doc_id = safe_text(doc, "DocumentID")
         doc_number = safe_text(doc, "DocumentNumber")
-        client_name = safe_text(doc.find(".//Company"), "Name")
+        client_name = safe_text(doc.find("Client"), "ClientName")
 
         output = []
         output.append(f"✅ Jaunākais dokumenta ID: {doc_id}")
         output.append(f"📄 Dokumenta Nr.: {doc_number}")
-        output.append(f"👤 Klients: {client_name}\n")
+        output.append(f"🧑 Klients: {client_name}\n")
 
         output.append("📦 Produkti dokumentā:")
         output.append("=" * 60)
@@ -80,21 +88,20 @@ def paytraq_full_report():
         for group, total in item_groups.items():
             output.append(f"🗂️ {group}: {total:.2f} EUR")
 
-        # Klienta informācija
+        # Klienta papildu informācija
         output.append("\n📋 Klienta informācija:")
         output.append("=" * 60)
-        company = doc.find(".//Company")
+        company = doc.find("Company")
         output.append(f"🏢 Nosaukums: {safe_text(company, 'Name')}")
         output.append(f"📧 E-pasts: {safe_text(company, 'Email')}")
         output.append(f"📞 Telefons: {safe_text(company, 'Phone')}")
         output.append(f"🆔 Reģistrācijas nr.: {safe_text(company, 'RegistrationNo')}")
 
-        address_el = company.find("Address") if company is not None else None
         address_parts = []
         for tag in ['Street', 'City', 'State', 'Postcode', 'CountryCode']:
-            part = safe_text(address_el, tag)
+            part = safe_text(company.find("Address") if company is not None else None, tag)
             address_parts.append(part)
-        full_address = ", ".join(address_parts) if address_parts else "—"
+        full_address = ", ".join(address_parts)
         output.append(f"📍 Adrese: {full_address}")
 
         return Response("\n".join(output), mimetype='text/plain')
