@@ -1,115 +1,122 @@
 from flask import Flask, jsonify, Response
 import requests
-from datetime import datetime
 import xml.etree.ElementTree as ET
+from datetime import datetime
 import os
 
 app = Flask(__name__)
 
-# API dati no vides mainīgajiem
 API_KEY = os.environ.get("API_KEY")
 API_TOKEN = os.environ.get("API_TOKEN")
-SYNC_URL = "https://paytraq-to-pipedrive-basic-service-281111054789.us-central1.run.app/sync"
 
-@app.route('/', methods=['GET'])
+
+@app.route("/", methods=["GET"])
 def index():
-    return jsonify({"message": "Sveiki! Serviss darbojas. Izmanto /get-paytraq-orders lai ielādētu un sinhronizētu datus."})
+    return jsonify({
+        "message": "Sveiki! Serviss darbojas. Izmanto /paytraq-full-report lai skatītu pēdējo dokumentu ar produktiem, klientu un grupām."
+    })
 
-@app.route('/get-paytraq-orders', methods=['GET'])
-def get_orders():
-    today = datetime.today().strftime('%Y-%m-%d')
-    url = f"https://go.paytraq.com/api/sales?APIKey={API_KEY}&APIToken={API_TOKEN}&DateFrom={today}&DateTo={today}"
 
-    response = requests.get(url)
-    if response.status_code == 200:
-        try:
-            root = ET.fromstring(response.text)
-            data = parse_xml_to_dict(root)
-            sync_response = requests.post(SYNC_URL, json=data)
-            return jsonify({
-                "paytraq_status": "success",
-                "sync_status": sync_response.status_code,
-                "sync_response": sync_response.text
-            })
-        except Exception as e:
-            return jsonify({"error": "Failed to parse XML", "details": str(e), "response": response.text})
-    else:
-        return jsonify({"status": "error", "code": response.status_code, "message": response.text})
-
-@app.route('/paytraq-full-report', methods=['GET'])
-def paytraq_full_report():
-    today = datetime.today().strftime('%Y-%m-%d')
-    url = f"https://go.paytraq.com/api/sales?APIKey={API_KEY}&APIToken={API_TOKEN}&DateFrom={today}&DateTo={today}"
-
+@app.route("/paytraq-full-report", methods=["GET"])
+def full_report():
     try:
-        response = requests.get(url)
-        response.raise_for_status()
-        root = ET.fromstring(response.content)
-        orders = root.findall(".//Sale")
+        # 1. Iegūstam dokumentu sarakstu
+        sales_url = f"https://go.paytraq.com/api/sales?APIKey={API_KEY}&APIToken={API_TOKEN}"
+        sales_response = requests.get(sales_url)
+        sales_response.raise_for_status()
 
-        if not orders:
-            return "❌ Nav atrasts neviens dokuments."
+        root = ET.fromstring(sales_response.content)
+        first_doc = root.find(".//Document/DocumentID")
+        if first_doc is None:
+            return Response("❌ Nav atrasts neviens dokuments.", mimetype="text/plain")
 
-        sale = orders[0]
-        doc = sale.find(".//Document")
-        doc_id = doc.findtext("DocumentID")
-        doc_number = doc.findtext("DocumentRef")
-        client_name = doc.findtext(".//Client/ClientName")
-        line_items = sale.findall(".//LineItem")
+        document_id = first_doc.text
+
+        # 2. Iegūstam detalizēto dokumentu
+        detail_url = f"https://go.paytraq.com/api/sale/{document_id}?APIKey={API_KEY}&APIToken={API_TOKEN}"
+        detail_response = requests.get(detail_url)
+        detail_response.raise_for_status()
+        detail_root = ET.fromstring(detail_response.content)
 
         output = []
-        output.append(f"✅ Jaunākais dokumenta ID: {doc_id}")
-        output.append(f"📄 Dokumenta Nr.: {doc_number}")
+
+        # Dokumenta info
+        doc_ref = detail_root.findtext(".//DocumentRef", default="—")
+        client_name = detail_root.findtext(".//ClientName", default="—")
+
+        output.append(f"✅ Jaunākais dokumenta ID: {document_id}")
+        output.append(f"📄 Dokumenta Nr.: {doc_ref}")
         output.append(f"👤 Klients: {client_name}\n")
+
+        # Produkti
         output.append("📦 Produkti dokumentā:")
         output.append("=" * 60)
-
+        line_items = detail_root.findall(".//LineItem")
         item_groups = {}
 
         for idx, item in enumerate(line_items, 1):
-            qty = item.findtext("Qty")
-            name = item.findtext("ItemName")
-            code = item.findtext("ItemCode")
-            price = item.findtext("Price")
-            unit = item.findtext("UnitName") or "gab."
-            total = item.findtext("LineTotal")
-            item_id = item.findtext("ItemID")
+            code = item.findtext(".//ItemCode", default="—")
+            name = item.findtext(".//ItemName", default="—")
+            qty = item.findtext("Qty", default="0")
+            price = item.findtext("Price", default="0.00")
+            total = item.findtext("LineTotal", default="0.00")
+            unit = item.findtext(".//UnitName", default="gab.")
+            item_id = item.findtext(".//ItemID", default="—")
 
             output.append(f"{idx}. {qty} x {name} ({code}) - {price} EUR [{unit}] → {total} EUR")
             output.append(f"      🔎 ItemID: {item_id}")
 
-            product_url = f"https://go.paytraq.com/api/product/{item_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
+            # Grupas info
             try:
+                product_url = f"https://go.paytraq.com/api/product/{item_id}?APIKey={API_KEY}&APIToken={API_TOKEN}"
                 product_response = requests.get(product_url)
                 product_response.raise_for_status()
                 product_root = ET.fromstring(product_response.content)
                 group_name = product_root.findtext(".//Group/GroupName", default="—").strip()
-                line_total = float(total.replace(",", "."))
+                total_float = float(total.replace(",", "."))
 
-                if group_name not in item_groups:
-                    item_groups[group_name] = 0.0
-                item_groups[group_name] += line_total
+                item_groups[group_name] = item_groups.get(group_name, 0.0) + total_float
             except Exception as e:
                 output.append(f"      ⚠️ Neizdevās iegūt grupu: {e}")
 
+        # Grupas kopsavilkums
         output.append("\n📚 Produktu grupas dokumentā:")
         output.append("=" * 60)
         for group, total in item_groups.items():
             output.append(f"🗂️ {group}: {total:.2f} EUR")
 
-        return Response("\n".join(output), mimetype='text/plain')
+        # Klienta papildus informācija
+        client_id = detail_root.findtext(".//ClientID")
+        client_url = f"https://go.paytraq.com/api/client/{client_id}?APIKey={API_KEY}&APIToken={API_TOKEN}"
+
+        try:
+            client_response = requests.get(client_url)
+            client_response.raise_for_status()
+            client_root = ET.fromstring(client_response.text)
+
+            email = client_root.findtext(".//Email") or "—"
+            phone = client_root.findtext(".//Phone") or "—"
+            reg_number = client_root.findtext(".//RegNumber") or "—"
+            address = client_root.findtext(".//Address") or "—"
+            city = client_root.findtext(".//City") or "—"
+            zip_code = client_root.findtext(".//Zip") or "—"
+            country = client_root.findtext(".//Country") or "—"
+
+            output.append("\n📇 Klienta informācija:")
+            output.append("=" * 60)
+            output.append(f"📛 Nosaukums: {client_name}")
+            output.append(f"✉️ E-pasts: {email}")
+            output.append(f"📞 Telefons: {phone}")
+            output.append(f"🏢 Reģistrācijas nr.: {reg_number}")
+            output.append(f"📍 Adrese: {address}, {city}, {zip_code}, {country}")
+        except Exception as e:
+            output.append(f"\n⚠️ Klienta info kļūda: {e}")
+
+        return Response("\n".join(output), mimetype="text/plain")
 
     except Exception as e:
-        return Response(f"❌ Kļūda: {str(e)}", mimetype='text/plain')
+        return Response(f"❌ Kļūda: {str(e)}", mimetype="text/plain")
 
-def parse_xml_to_dict(element):
-    data = {}
-    for child in element:
-        if len(child):
-            data[child.tag] = parse_xml_to_dict(child)
-        else:
-            data[child.tag] = child.text
-    return data
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
