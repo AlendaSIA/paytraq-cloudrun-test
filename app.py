@@ -41,10 +41,11 @@ def paytraq_full_report():
     except Exception as e:
         return Response(f"❌ Kļūda iegūstot dokumenta datus: {e}", mimetype="text/plain")
 
-    xml_string = detail_response.content  # XML ko sūtīt uz Pipedrive servisu
+    xml_string = detail_response.content
     detail_root = ET.fromstring(xml_string)
 
     doc_ref = safe_text(detail_root, ".//DocumentRef")
+    doc_date = safe_text(detail_root, ".//DocumentDate")
     client_name = safe_text(detail_root, ".//ClientName")
     comment = safe_text(detail_root, ".//Comment")
 
@@ -55,11 +56,11 @@ def paytraq_full_report():
         estimate_order = doc_ref
 
     output.append(f"📄 Dokumenta Nr.: {doc_ref}")
+    output.append(f"📅 Dokumenta datums: {doc_date}")
     output.append(f"🧾 Komentārs: {comment}")
     output.append(f"📦 Estimate / Sales Order: {estimate_order}")
     output.append(f"🧑 Klients: {client_name}")
 
-    # Produkti
     output.append("\n📦 Produkti dokumentā:")
     output.append("=" * 60)
     line_items = detail_root.findall(".//LineItem")
@@ -83,7 +84,6 @@ def paytraq_full_report():
                 text = child.text.strip() if child.text else "—"
                 output.append(f"      {tag}: {text}")
 
-    # Klienta info
     client_id = safe_text(detail_root, ".//ClientID")
     output.append(f"\n🔎 ClientID: {client_id}")
     client_url = f"https://go.paytraq.com/api/client/{client_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
@@ -113,7 +113,6 @@ def paytraq_full_report():
     except Exception as e:
         output.append(f"❌ Neizdevās iegūt klienta datus: {e}")
 
-    # Produktu grupas
     output.append("\n📊 Produktu grupas pasūtījumā ar kopsummām:")
     output.append("=" * 60)
     group_totals = {}
@@ -141,7 +140,6 @@ def paytraq_full_report():
     for group_name, total in group_totals.items():
         output.append(f"🗂️ {group_name}: {total:.2f} EUR")
 
-    # ✅ Nosūtām uz Pipedrive servisu
     try:
         sync_response = requests.post(SYNC_URL, data=xml_string, headers={"Content-Type": "application/xml"})
         output.append("\n📤 Nosūtīts uz Pipedrive servisu:")
