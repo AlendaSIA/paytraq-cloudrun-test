@@ -64,6 +64,7 @@ def paytraq_full_report():
     output.append("\n📦 Produkti dokumentā:")
     output.append("=" * 60)
     line_items = detail_root.findall(".//LineItem")
+    group_totals = {}
     if not line_items:
         output.append("❌ Produkti nav atrasti.")
     else:
@@ -76,8 +77,24 @@ def paytraq_full_report():
             unit = safe_text(item, ".//UnitName", default="gab.")
             item_id = safe_text(item, ".//ItemID")
 
+            group_name = "—"
+            group_id = "—"
+            if item_id != "—":
+                product_url = f"https://go.paytraq.com/api/product/{item_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
+                try:
+                    response = requests.get(product_url)
+                    response.raise_for_status()
+                    product_root = ET.fromstring(response.content)
+                    group_name = safe_text(product_root, ".//Group/GroupName")
+                    group_id = safe_text(product_root, ".//Group/GroupID")
+                    group_totals[group_name] = group_totals.get(group_name, 0.0) + float(total.replace(",", "."))
+                except:
+                    group_name = "—"
+                    group_id = "—"
+
             output.append(f"{idx}. {qty} x {name} ({code}) - {price} EUR [{unit}] → {total} EUR")
             output.append(f"   🔎 ItemID: {item_id}")
+            output.append(f"   🗂️ Grupa: {group_name} (ID: {group_id})")
             output.append("   🔍 Pilns XML par produktu:")
             for child in item.iter():
                 tag = child.tag
@@ -115,28 +132,6 @@ def paytraq_full_report():
 
     output.append("\n📊 Produktu grupas pasūtījumā ar kopsummām:")
     output.append("=" * 60)
-    group_totals = {}
-    for item in line_items:
-        item_id = safe_text(item, ".//ItemID")
-        line_total_raw = safe_text(item, "LineTotal")
-        try:
-            line_total = float(line_total_raw.replace(",", ".")) if line_total_raw not in ("", "—") else 0.0
-        except:
-            line_total = 0.0
-
-        if item_id == "—":
-            continue
-
-        product_url = f"https://go.paytraq.com/api/product/{item_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
-        try:
-            response = requests.get(product_url)
-            response.raise_for_status()
-            product_root = ET.fromstring(response.content)
-            group_name = safe_text(product_root, ".//Group/GroupName")
-            group_totals[group_name] = group_totals.get(group_name, 0.0) + line_total
-        except Exception as e:
-            output.append(f"❌ Neizdevās iegūt grupas info produktam {item_id}: {e}")
-
     for group_name, total in group_totals.items():
         output.append(f"🗂️ {group_name}: {total:.2f} EUR")
 
