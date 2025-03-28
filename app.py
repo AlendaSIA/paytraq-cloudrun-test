@@ -112,7 +112,7 @@ def paytraq_full_report():
         email = safe_text(client_root, ".//Email")
         phone = safe_text(client_root, ".//Phone")
         reg_number = safe_text(client_root, ".//RegNumber")
-        vat_number = safe_text(client_root, ".//VATNumber")
+        vat_number = safe_text(client_root, ".//Client/VATNumber")  # ← ŠEIT IR LABOJUMS
         address = safe_text(client_root, ".//Address")
         city = safe_text(client_root, ".//City")
         zip_code = safe_text(client_root, ".//Zip")
