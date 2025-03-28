@@ -112,7 +112,7 @@ def paytraq_full_report():
         email = safe_text(client_root, ".//Email")
         phone = safe_text(client_root, ".//Phone")
         reg_number = safe_text(client_root, ".//RegNumber")
-        vat_number = safe_text(client_root, ".//Client/VATNumber")
+        vat_number = safe_text(client_root, ".//VATNumber")  # ← PAREIZĀ LABOJUMS
         address = safe_text(client_root, ".//Address")
         city = safe_text(client_root, ".//City")
         zip_code = safe_text(client_root, ".//Zip")
@@ -129,8 +129,6 @@ def paytraq_full_report():
         output.append(f"       Pilsēta: {city}")
         output.append(f"       Pasta indekss: {zip_code}")
         output.append(f"       Valsts: {country}")
-
-        # ✅ Šīs divas rindiņas izmanto automatizācijai:
         output.append(f"\n__REGNUM__:{reg_number}")
         output.append(f"__VATNUM__:{vat_number}")
 
