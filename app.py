@@ -59,7 +59,7 @@ def paytraq_full_report():
     output.append(f"📅 Dokumenta datums: {doc_date}")
     output.append(f"🧾 Komentārs: {comment}")
     output.append(f"📦 Estimate / Sales Order: {estimate_order}")
-    output.append(f"🧑 Klients: {client_name}")
+    output.append(f"🤑 Klients: {client_name}")
 
     output.append("\n📦 Produkti dokumentā:")
     output.append("=" * 60)
@@ -94,7 +94,7 @@ def paytraq_full_report():
 
             output.append(f"{idx}. {qty} x {name} ({code}) - {price} EUR [{unit}] → {total} EUR")
             output.append(f"   🔎 ItemID: {item_id}")
-            output.append(f"   🗂️ Grupa: {group_name} (ID: {group_id})")
+            output.append(f"   📂️ Grupa: {group_name} (ID: {group_id})")
             output.append("   🔍 Pilns XML par produktu:")
             for child in item.iter():
                 tag = child.tag
@@ -119,7 +119,7 @@ def paytraq_full_report():
 
         output.append("\n📇 Klienta informācija:")
         output.append("=" * 60)
-        output.append(f"📛 Nosaukums: {client_name}")
+        output.append(f"💼 Nosaukums: {client_name}")
         output.append(f"✉️ E-pasts: {email}")
         output.append(f"📞 Telefons: {phone}")
         output.append(f"🏢 Reģistrācijas nr.: {reg_number}")
@@ -127,20 +127,23 @@ def paytraq_full_report():
         output.append(f"       Pilsēta: {city}")
         output.append(f"       Pasta indekss: {zip_code}")
         output.append(f"       Valsts: {country}")
+        # ✅ PIEVIENOTS: Reģistrācijas nr. jsonā (izmantošanai sync procesā)
+        output.append(f"\n__REGNUM__:{reg_number}")
+
     except Exception as e:
         output.append(f"❌ Neizdevās iegūt klienta datus: {e}")
 
     output.append("\n📊 Produktu grupas pasūtījumā ar kopsummām:")
     output.append("=" * 60)
     for group_name, total in group_totals.items():
-        output.append(f"🗂️ {group_name}: {total:.2f} EUR")
+        output.append(f"📂 {group_name}: {total:.2f} EUR")
 
     try:
         sync_response = requests.post(SYNC_URL, data=xml_string, headers={"Content-Type": "application/xml"})
         output.append("\n📤 Nosūtīts uz Pipedrive servisu:")
         output.append(sync_response.text)
     except Exception as e:
-        output.append(f"❌ Kļūda sūtot uz Pipedrive servisu: {e}")
+        output.append(f"❌ Kļūda sūot uz Pipedrive servisu: {e}")
 
     return Response("\n".join(output), mimetype="text/plain")
 
