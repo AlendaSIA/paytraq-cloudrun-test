@@ -1,4 +1,4 @@
-""from flask import Flask, Response
+from flask import Flask, Response
 import requests
 import xml.etree.ElementTree as ET
 import os
@@ -130,7 +130,7 @@ def paytraq_full_report():
         output.append(f"       Pasta indekss: {zip_code}")
         output.append(f"       Valsts: {country}")
 
-        # Pieejamie atslēgvārdi tālākai lietošanai citos procesos
+        # 🟩 ŠEIT IR PAPILDINĀTIE DATI
         output.append(f"\n__REGNUM__:{reg_number}")
         output.append(f"__VATNUM__:{vat_number}")
         output.append(f"__ADDRESS__:{address}")
