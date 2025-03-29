@@ -1,4 +1,4 @@
-from flask import Flask, Response
+""from flask import Flask, Response
 import requests
 import xml.etree.ElementTree as ET
 import os
@@ -112,7 +112,7 @@ def paytraq_full_report():
         email = safe_text(client_root, ".//Email")
         phone = safe_text(client_root, ".//Phone")
         reg_number = safe_text(client_root, ".//RegNumber")
-        vat_number = safe_text(client_root, ".//VatNumber")  # ← ŠEIT PAREIZĀ LABOJUMS
+        vat_number = safe_text(client_root, ".//VatNumber")
         address = safe_text(client_root, ".//Address")
         city = safe_text(client_root, ".//City")
         zip_code = safe_text(client_root, ".//Zip")
@@ -129,8 +129,14 @@ def paytraq_full_report():
         output.append(f"       Pilsēta: {city}")
         output.append(f"       Pasta indekss: {zip_code}")
         output.append(f"       Valsts: {country}")
+
+        # Pieejamie atslēgvārdi tālākai lietošanai citos procesos
         output.append(f"\n__REGNUM__:{reg_number}")
         output.append(f"__VATNUM__:{vat_number}")
+        output.append(f"__ADDRESS__:{address}")
+        output.append(f"__CITY__:{city}")
+        output.append(f"__ZIP__:{zip_code}")
+        output.append(f"__COUNTRY__:{country}")
 
     except Exception as e:
         output.append(f"❌ Neizdevās iegūt klienta datus: {e}")
