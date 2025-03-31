@@ -37,6 +37,8 @@ def paytraq_full_report():
         return Response("❌ Nav atrasts neviens dokuments.", mimetype="text/plain")
 
     document_id = first_doc.text
+    output = [f"✅ Jaunākais dokumenta ID: {document_id}"]
+
     detail_url = f"https://go.paytraq.com/api/sale/{document_id}?APIKey={API_KEY}&APIToken={API_TOKEN}"
     try:
         detail_response = requests.get(detail_url)
@@ -46,9 +48,28 @@ def paytraq_full_report():
 
     xml_string = detail_response.content
     detail_root = ET.fromstring(xml_string)
-    global_last_client_id = safe_text(detail_root, ".//ClientID")
 
-    return Response("✅ Saglabāts pēdējais klienta ID: " + global_last_client_id, mimetype="text/plain")
+    client_id = safe_text(detail_root, ".//ClientID")
+    global_last_client_id = client_id
+
+    doc_ref = safe_text(detail_root, ".//DocumentRef")
+    doc_date = safe_text(detail_root, ".//DocumentDate")
+    client_name = safe_text(detail_root, ".//ClientName")
+    comment = safe_text(detail_root, ".//Comment")
+
+    estimate_order = "—"
+    if comment.startswith("M-860325"):
+        estimate_order = comment.split(",")[0].strip()
+    elif doc_ref.startswith("PAS/"):
+        estimate_order = doc_ref
+
+    output.append(f"📄 Dokumenta Nr.: {doc_ref}")
+    output.append(f"📅 Dokumenta datums: {doc_date}")
+    output.append(f"🧾 Komentārs: {comment}")
+    output.append(f"📦 Estimate / Sales Order: {estimate_order}")
+    output.append(f"🤑 Klients: {client_name}")
+
+    return Response("\n".join(output + [f"✅ Saglabāts pēdējais klienta ID: {client_id}"]), mimetype="text/plain")
 
 @app.route("/get-orders-last-12-months-auto", methods=["GET"])
 def get_orders_last_12_months_auto():
