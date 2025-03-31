@@ -49,9 +49,6 @@ def paytraq_full_report():
     xml_string = detail_response.content
     detail_root = ET.fromstring(xml_string)
 
-    client_id = safe_text(detail_root, ".//ClientID")
-    global_last_client_id = client_id
-
     doc_ref = safe_text(detail_root, ".//DocumentRef")
     doc_date = safe_text(detail_root, ".//DocumentDate")
     client_name = safe_text(detail_root, ".//ClientName")
@@ -69,7 +66,60 @@ def paytraq_full_report():
     output.append(f"📦 Estimate / Sales Order: {estimate_order}")
     output.append(f"🤑 Klients: {client_name}")
 
-    return Response("\n".join(output + [f"✅ Saglabāts pēdējais klienta ID: {client_id}"]), mimetype="text/plain")
+    output.append("\n📦 Produkti dokumentā:")
+    output.append("=" * 60)
+    line_items = detail_root.findall(".//LineItem")
+    group_totals = {}
+    if not line_items:
+        output.append("❌ Produkti nav atrasti.")
+    else:
+        for idx, item in enumerate(line_items, 1):
+            code = safe_text(item, ".//ItemCode")
+            name = safe_text(item, ".//ItemName")
+            qty = safe_text(item, "Qty")
+            price = safe_text(item, "Price")
+            total = safe_text(item, "LineTotal")
+            unit = safe_text(item, ".//UnitName", default="gab.")
+            item_id = safe_text(item, ".//ItemID")
+
+            group_name = "—"
+            group_id = "—"
+            if item_id != "—":
+                product_url = f"https://go.paytraq.com/api/product/{item_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
+                try:
+                    response = requests.get(product_url)
+                    response.raise_for_status()
+                    product_root = ET.fromstring(response.content)
+                    group_name = safe_text(product_root, ".//Group/GroupName")
+                    group_id = safe_text(product_root, ".//Group/GroupID")
+                    group_totals[group_name] = group_totals.get(group_name, 0.0) + float(total.replace(",", "."))
+                except:
+                    group_name = "—"
+                    group_id = "—"
+
+            output.append(f"{idx}. {qty} x {name} ({code}) - {price} EUR [{unit}] → {total} EUR")
+            output.append(f"   🔎 ItemID: {item_id}")
+            output.append(f"   📂️ Grupa: {group_name} (ID: {group_id})")
+            output.append("   🔍 Pilns XML par produktu:")
+            for child in item.iter():
+                tag = child.tag
+                text = child.text.strip() if child.text else "—"
+                output.append(f"      {tag}: {text}")
+
+    client_id = safe_text(detail_root, ".//ClientID")
+    global_last_client_id = client_id
+    output.append(f"\n🔎 ClientID: {client_id}")
+    output.append(f"➡️ Skatīt 12 mēnešu pasūtījumus: /get-orders-last-12-months-auto")
+    output.append(f"➡️ Vai ar ID: /get-orders-last-12-months?client_id={client_id}")
+
+    try:
+        sync_response = requests.post(SYNC_URL, data=xml_string, headers={"Content-Type": "application/xml"})
+        output.append("\n📤 Nosūtīts uz Pipedrive servisu:")
+        output.append(sync_response.text)
+    except Exception as e:
+        output.append(f"❌ Kļūda sūot uz Pipedrive servisu: {e}")
+
+    return Response("\n".join(output), mimetype="text/plain")
 
 @app.route("/get-orders-last-12-months-auto", methods=["GET"])
 def get_orders_last_12_months_auto():
@@ -84,6 +134,7 @@ def get_orders_last_12_months():
     if not client_id:
         return Response("❌ Nav norādīts client_id", mimetype="text/plain")
     return get_orders_last_12_months_internal(client_id)
+
 
 def get_orders_last_12_months_internal(client_id):
     output = [f"📥 Meklējam dokumentus klientam ID {client_id} pēdējo 12 mēnešu laikā...\n"]
