@@ -67,7 +67,7 @@ def paytraq_full_report():
     output.append("\n📦 Produkti dokumentā:")
     output.append("=" * 60)
     line_items = detail_root.findall(".//LineItem")
-    group_totals = {}
+    group_totals = {}  # <-- Tagad saturēs: { "51|||Cimdi nitrila": 25.0 }
     if not line_items:
         output.append("❌ Produkti nav atrasti.")
     else:
@@ -90,7 +90,9 @@ def paytraq_full_report():
                     product_root = ET.fromstring(response.content)
                     group_name = safe_text(product_root, ".//Group/GroupName")
                     group_id = safe_text(product_root, ".//Group/GroupID")
-                    group_totals[group_name] = group_totals.get(group_name, 0.0) + float(total.replace(",", "."))
+
+                    key = f"{group_id}|||{group_name}"
+                    group_totals[key] = group_totals.get(key, 0.0) + float(total.replace(",", "."))
                 except:
                     group_name = "—"
                     group_id = "—"
@@ -141,8 +143,9 @@ def paytraq_full_report():
 
     output.append("\n📊 Produktu grupas pasūtījumā ar kopsummām:")
     output.append("=" * 60)
-    for group_name, total in group_totals.items():
-        output.append(f"📂 {group_name}: {total:.2f} EUR")
+    for key, total in group_totals.items():
+        group_id, group_name = key.split("|||")
+        output.append(f"📂 {group_name} (ID:{group_id}): {total:.2f} EUR")
 
     try:
         sync_response = requests.post(SYNC_URL, data=xml_string, headers={"Content-Type": "application/xml"})
