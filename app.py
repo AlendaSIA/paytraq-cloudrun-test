@@ -2,6 +2,7 @@ from flask import Flask, Response, request
 import requests
 import xml.etree.ElementTree as ET
 import os
+import re
 
 app = Flask(__name__)
 
@@ -55,8 +56,12 @@ def paytraq_full_report():
     estimate_order = "—"
     if comment.startswith("M-860325"):
         estimate_order = comment.split(",")[0].strip()
-    elif doc_ref.startswith("PAS/"):
-        estimate_order = doc_ref
+    else:
+        match = re.search(r"(PAS/\S+|PR/\S+)", comment)
+        if match:
+            estimate_order = match.group(1)
+        elif doc_ref.startswith("PAS/"):
+            estimate_order = doc_ref
 
     output.append(f"📄 Dokumenta Nr.: {doc_ref}")
     output.append(f"📅 Dokumenta datums: {doc_date}")
@@ -67,7 +72,7 @@ def paytraq_full_report():
     output.append("\n📦 Produkti dokumentā:")
     output.append("=" * 60)
     line_items = detail_root.findall(".//LineItem")
-    group_totals = {}  # <-- Tagad saturēs: { "51|||Cimdi nitrila": 25.0 }
+    group_totals = {}
     if not line_items:
         output.append("❌ Produkti nav atrasti.")
     else:
@@ -109,7 +114,7 @@ def paytraq_full_report():
     client_id = safe_text(detail_root, ".//ClientID")
     global_last_client_id = client_id
     output.append(f"\n🔎 ClientID: {client_id}")
-    output.append(f"➡️ Skatīt 12 mēnešu pasūtījumus: /get-orders-last-12-months-auto")
+    output.append(f"➡️ Skatīt 12 mēnešu pasūtĭjumus: /get-orders-last-12-months-auto")
     output.append(f"➡️ Vai ar ID: /get-orders-last-12-months?client_id={client_id}")
 
     client_url = f"https://go.paytraq.com/api/client/{client_id}?APIToken={API_TOKEN}&APIKey={API_KEY}"
@@ -132,8 +137,8 @@ def paytraq_full_report():
         output.append(f"💼 Nosaukums: {client_name}")
         output.append(f"✉️ E-pasts: {email}")
         output.append(f"📞 Telefons: {phone}")
-        output.append(f"🏢 Reģistrācijas nr.: {reg_number}")
-        output.append(f"🧾 PVN numurs: {vat_number}")
+        output.append(f"🏢 Reģ. nr.: {reg_number}")
+        output.append(f"🧾 PVN nr.: {vat_number}")
         output.append(f"📍 Adrese: {address}")
         output.append(f"       Pilsēta: {city}")
         output.append(f"       Pasta indekss: {zip_code}")
